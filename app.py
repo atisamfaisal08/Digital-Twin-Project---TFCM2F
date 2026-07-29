@@ -1140,35 +1140,38 @@ def render_panel3():
             x_m_curve, y_m_curve, x_m_ss, y_m_ss = compute_lowess_polarization(
                 r['current_density_real'], r['V_real'], dt_val
             )
-            # Faint background scatter for filtered steady-state operating points
+            # Faint background scatter (hidden from legend)
             fig.add_trace(go.Scatter(
-                x=x_m_ss, y=y_m_ss, mode='markers', name='Measured (Steady Points)',
-                marker=dict(color=MEASURED_COLOR, size=3, opacity=0.22)
+                x=x_m_ss, y=y_m_ss, mode='markers', 
+                marker=dict(color=MEASURED_COLOR, size=3, opacity=0.22),
+                showlegend=False
             ))
-            # Smooth LOWESS trend line representing the true steady-state polarization curve
+            # Smooth LOWESS trend line
             fig.add_trace(go.Scatter(
-                x=x_m_curve, y=y_m_curve, mode='lines', name='Measured LOWESS',
+                x=x_m_curve, y=y_m_curve, mode='lines', name='Measured',
                 line=dict(color=MEASURED_COLOR, width=2.2)
             ))
 
         x_t_curve, y_t_curve, x_t_ss, y_t_ss = compute_lowess_polarization(
             r['current_density'], r['V_final'], dt_val
         )
-        # Faint background scatter for filtered steady-state operating points
+        # Faint background scatter (hidden from legend)
         fig.add_trace(go.Scatter(
-            x=x_t_ss, y=y_t_ss, mode='markers', name='Twin (Steady Points)',
-            marker=dict(color=PREDICTED_COLOR, size=3, opacity=0.22)
+            x=x_t_ss, y=y_t_ss, mode='markers', 
+            marker=dict(color=PREDICTED_COLOR, size=3, opacity=0.22),
+            showlegend=False
         ))
-        # Smooth LOWESS trend line representing the true steady-state polarization curve
+        # Smooth LOWESS trend line
         fig.add_trace(go.Scatter(
-            x=x_t_curve, y=y_t_curve, mode='lines', name='Twin LOWESS',
+            x=x_t_curve, y=y_t_curve, mode='lines', name='Twin',
             line=dict(color=PREDICTED_COLOR, width=2.2)
         ))
 
         fig.update_layout(**{**PLOT_LAYOUT,
-            # Override legend to sit in the empty top-right corner
+            # Compact legend tucked into the top right
             'legend': dict(yanchor="top", y=0.99, xanchor="right", x=0.99, 
-                           bgcolor='rgba(13,15,20,0.85)', bordercolor='#1e2433', borderwidth=1),
+                           bgcolor='rgba(13,15,20,0.85)', bordercolor='#1e2433', 
+                           borderwidth=1, font=dict(size=9)),
             'title': dict(text='Steady-State Polarization Curve (LOWESS)', font=dict(size=10)),
             'xaxis': dict(title='Current Density (A/m²)',
                           gridcolor='#1e2433', tickfont=dict(size=9)),
