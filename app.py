@@ -1166,6 +1166,9 @@ def render_panel3():
         ))
 
         fig.update_layout(**{**PLOT_LAYOUT,
+            # Override legend to sit in the empty top-right corner
+            'legend': dict(yanchor="top", y=0.99, xanchor="right", x=0.99, 
+                           bgcolor='rgba(13,15,20,0.85)', bordercolor='#1e2433', borderwidth=1),
             'title': dict(text='Steady-State Polarization Curve (LOWESS)', font=dict(size=10)),
             'xaxis': dict(title='Current Density (A/m²)',
                           gridcolor='#1e2433', tickfont=dict(size=9)),
