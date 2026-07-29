@@ -235,8 +235,12 @@ def compute_polarization_curve(i_arr, v_arr, num_bins):
     if len(df_pol) == 0:
         return np.array([]), np.array([])
     
+    i_min, i_max = df_pol['i'].min(), df_pol['i'].max()
+    if i_min == i_max:
+        return np.array([i_min]), np.array([df_pol['v'].mean()])
+    
     # Bin the current density range
-    bin_edges = np.linspace(df_pol['i'].min(), df_pol['i'].max(), num_bins + 1)
+    bin_edges = np.linspace(i_min, i_max, num_bins + 1)
     df_pol['i_bin'] = pd.cut(df_pol['i'], bins=bin_edges, include_lowest=True)
     
     # Calculate the mean voltage per bin
