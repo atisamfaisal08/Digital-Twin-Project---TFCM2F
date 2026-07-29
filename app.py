@@ -129,11 +129,7 @@ html, body, [class*="css"] {
     color: #f97316;
 }
 
-/* ── Panel 3 KPI cards ────────────────────────────────────────────────────
-   Custom cards (instead of st.metric) so the CSV-mode vs Predict-mode
-   distinction can live directly on every KPI card via a colored top border,
-   not just in the small subtitle text above the whole dashboard. Someone
-   skimming fast now sees the mode on every number, not just at the top. */
+/* ── Panel 3 KPI cards ─────────────────────────────────────────────────── */
 .kpi-card {
     background: #141720;
     border: 1px solid #1e2433;
@@ -158,7 +154,7 @@ html, body, [class*="css"] {
 /* Remove default streamlit padding on top */
 .block-container { padding-top: 1.5rem; }
 
-/* ── Block editor (Vehicle Spy-style script blocks) ─────────────────────── */
+/* ── Block editor ───────────────────────────────────────────────────────── */
 .blk-row {
     display: flex;
     align-items: center;
@@ -191,7 +187,7 @@ html, body, [class*="css"] {
     margin-top: -4px;
 }
 
-/* ── Model architecture narrative (Learn More section) ──────────────────── */
+/* ── Model architecture narrative ───────────────────────────────────────── */
 .narrative-step {
     font-family: 'IBM Plex Mono', monospace;
     font-size: 9px;
@@ -235,11 +231,6 @@ PLOT_LAYOUT = dict(
     plot_bgcolor='#0d0f14',
     font=dict(family='IBM Plex Mono', size=10, color='#94a3b8'),
     margin=dict(l=44, r=16, t=40, b=36),
-    # Legend now sits INSIDE the plot box (top-left, with a translucent backing)
-    # instead of floating above it. The old orientation='h', y=1.02 placement put
-    # it in the same vertical band as the Plotly chart title, in the margin
-    # region above the plot, which is exactly why titles and legends were
-    # overlapping across the dashboard.
     legend=dict(font=dict(size=8.5), bgcolor='rgba(13,15,20,0.65)',
                 bordercolor='#1e2433', borderwidth=1,
                 orientation='h', yanchor='top', y=0.99, xanchor='left', x=0.01),
@@ -259,35 +250,11 @@ COLORS = {
     'slate'  : '#64748b',
 }
 
-# Fixed measured-vs-predicted color pairing used everywhere in Panel 3.
-# Previously each channel used its own predicted color (green, purple, teal...)
-# next to a blue measured trace, and blue/green in particular reads as nearly
-# the same color to a lot of people. Standardizing to one blue/red convention
-# for every overlay plot removes that ambiguity across the whole dashboard.
 MEASURED_COLOR  = COLORS['blue']
 PREDICTED_COLOR = COLORS['red']
 
-# ── FUEL CELL HTML (components.html — animations work here) ───────────────────
+# ── FUEL CELL HTML ────────────────────────────────────────────────────────────
 def _fc_html(width=780, height=480, dim=False, grow=False):
-    """
-    Returns a complete HTML document containing an animated isometric TFCM2-F
-    schematic. Must be rendered via components.html() not st.markdown() because
-    Streamlit strips SVG <animate>/<animateTransform> tags for security — those
-    are silently dropped by the markdown sanitizer but survive inside the
-    sandboxed iframe that components.html() renders into.
-
-    The internal drawing lives on a fixed 900x560 viewBox — everything below is
-    isometric-projected box geometry (three shaded faces: top / front / side)
-    rather than a flat rectangle, so it reads as a 3D module instead of a
-    clipart icon. Passing larger width/height just scales the whole drawing up;
-    the geometry itself never needs to change.
-
-    dim  : lowers opacity slightly (unused now that Panel 2 keeps full opacity
-           per the "PEM FC should be more opaque" note, kept for flexibility).
-    grow : adds a CSS keyframe animation that scales the whole SVG up from 0.85x
-           to 1x on mount, used for the Panel1 -> Panel2 "grows into frame"
-           transition described in the hand sketch.
-    """
     op = "0.55" if dim else "1.0"
     grow_css = """
       svg { animation: fcGrow 0.6s cubic-bezier(0.22,1,0.36,1) both; }
@@ -309,7 +276,6 @@ def _fc_html(width=780, height=480, dim=False, grow=False):
 <svg width="{width}" height="{height}" viewBox="0 0 900 560"
      xmlns="http://www.w3.org/2000/svg" opacity="{op}">
   <defs>
-    <!-- Face gradients — top lightest, front mid, side darkest: gives the box actual depth -->
     <linearGradient id="faceTop" x1="0%" y1="0%" x2="100%" y2="100%">
       <stop offset="0%"  style="stop-color:#3a4358"/>
       <stop offset="100%" style="stop-color:#2b3346"/>
@@ -341,29 +307,21 @@ def _fc_html(width=780, height=480, dim=False, grow=False):
       <path d="M0,0 L0,7 L9,3.5 z" fill="#f97316"/></marker>
   </defs>
 
-  <!-- Ground shadow -->
   <ellipse cx="460" cy="472" rx="230" ry="16" fill="#000000" opacity="0.35"/>
 
-  <!-- ═══ ISOMETRIC BOX — three shaded faces ═══ -->
-  <!-- TOP face -->
   <polygon points="380,110 648,265 514,343 246,188" fill="url(#faceTop)"
            stroke="#475569" stroke-width="1.5"/>
-  <!-- FRONT face (long side — matches the cross-braced face in real photos) -->
   <polygon points="380,210 648,365 648,265 380,110" fill="url(#faceFront)"
            stroke="#475569" stroke-width="1.5"/>
-  <!-- SIDE face (short end) -->
   <polygon points="648,365 514,443 514,343 648,265" fill="url(#faceSide)"
            stroke="#475569" stroke-width="1.5"/>
 
-  <!-- Cross-bracing on the front face (mirrors the real TFCM2-F truss frame) -->
   <line x1="380" y1="210" x2="648" y2="265" stroke="#3a4358" stroke-width="2"/>
   <line x1="380" y1="110" x2="648" y2="365" stroke="#3a4358" stroke-width="2"/>
   <line x1="380" y1="160" x2="648" y2="315" stroke="#3a4358" stroke-width="1.5" opacity="0.7"/>
 
-  <!-- Vent / grille panel on top face -->
   <polygon points="387,153 494,215 454,238 347,176" fill="url(#vent)" stroke="#475569" stroke-width="1"/>
 
-  <!-- Perimeter bolts -->
   <g fill="#94a3b8" stroke="#0d0f14" stroke-width="0.5">
     <circle cx="380" cy="210" r="3.6"/><circle cx="648" cy="365" r="3.6"/>
     <circle cx="648" cy="265" r="3.6"/><circle cx="380" cy="110" r="3.6"/>
@@ -373,12 +331,10 @@ def _fc_html(width=780, height=480, dim=False, grow=False):
     <circle cx="469" cy="262" r="3"/><circle cx="559" cy="313" r="3"/>
   </g>
 
-  <!-- Bottom connector / valve housings along the front-bottom edge -->
   <rect x="428" y="235" width="14" height="10" rx="2" fill="#2d3748" stroke="#475569"/>
   <rect x="508" y="281" width="14" height="10" rx="2" fill="#2d3748" stroke="#475569"/>
   <rect x="588" y="328" width="14" height="10" rx="2" fill="#2d3748" stroke="#475569"/>
 
-  <!-- HV cable bundle (orange — signature TFCM2-F feature) -->
   <path d="M 610,290 C 690,278 750,310 828,292" fill="none"
         stroke="#f97316" stroke-width="11" stroke-linecap="round" opacity="0.92"/>
   <path d="M 610,290 C 690,278 750,310 828,292" fill="none"
@@ -388,7 +344,6 @@ def _fc_html(width=780, height=480, dim=False, grow=False):
   <text x="836" y="288" font-family="IBM Plex Mono" font-size="10" fill="#f97316" font-weight="600">HV+</text>
   <text x="836" y="302" font-family="IBM Plex Mono" font-size="10" fill="#f97316" font-weight="600">HV−</text>
 
-  <!-- Air compressor fan (mounted at front-left corner, blades rotate) -->
   <circle cx="300" cy="303" r="38" fill="url(#fanHub)" stroke="#3a4358" stroke-width="2.5"/>
   <g transform="translate(300,303)">
     <animateTransform attributeName="transform" type="rotate"
@@ -402,12 +357,10 @@ def _fc_html(width=780, height=480, dim=False, grow=False):
   <text x="300" y="357" text-anchor="middle" font-family="IBM Plex Mono"
         font-size="9" fill="#64748b" letter-spacing="0.08em">COMPRESSOR</text>
 
-  <!-- 330 CELLS callout on front face -->
   <rect x="418" y="132" width="98" height="22" rx="3" fill="#0d0f14" opacity="0.55"/>
   <text x="467" y="147" text-anchor="middle" font-family="IBM Plex Mono"
         font-size="11" fill="#94a3b8" font-weight="600" letter-spacing="0.1em">330 CELLS</text>
 
-  <!-- H2 inlet -->
   <line x1="55" y1="150" x2="332" y2="195" stroke="#4ade80" stroke-width="3"
         marker-end="url(#aH2)" stroke-dasharray="7 4">
     <animate attributeName="stroke-dashoffset" values="22;0" dur="0.8s" repeatCount="indefinite"/>
@@ -415,7 +368,6 @@ def _fc_html(width=780, height=480, dim=False, grow=False):
   <text x="30" y="132" font-family="IBM Plex Mono" font-size="13" fill="#4ade80" font-weight="600">H₂</text>
   <text x="14" y="148" font-family="IBM Plex Mono" font-size="9" fill="#4ade80" letter-spacing="0.06em">INLET</text>
 
-  <!-- Air intake -->
   <line x1="55" y1="368" x2="278" y2="318" stroke="#38bdf8" stroke-width="2.6"
         marker-end="url(#aAir)" stroke-dasharray="7 4">
     <animate attributeName="stroke-dashoffset" values="22;0" dur="1.1s" repeatCount="indefinite"/>
@@ -423,21 +375,18 @@ def _fc_html(width=780, height=480, dim=False, grow=False):
   <text x="14" y="396" font-family="IBM Plex Mono" font-size="13" fill="#38bdf8" font-weight="600">AIR</text>
   <text x="4"  y="411" font-family="IBM Plex Mono" font-size="9" fill="#38bdf8" letter-spacing="0.06em">INTAKE</text>
 
-  <!-- Coolant IN -->
   <line x1="298" y1="510" x2="392" y2="225" stroke="#f97316" stroke-width="3"
         marker-end="url(#aC)" stroke-dasharray="7 4">
     <animate attributeName="stroke-dashoffset" values="22;0" dur="1.3s" repeatCount="indefinite"/>
   </line>
   <text x="228" y="528" font-family="IBM Plex Mono" font-size="10" fill="#f97316" font-weight="600">COOLANT IN</text>
 
-  <!-- Coolant OUT -->
   <line x1="602" y1="380" x2="710" y2="478" stroke="#f97316" stroke-width="3"
         marker-end="url(#aC)" stroke-dasharray="7 4" opacity="0.65">
     <animate attributeName="stroke-dashoffset" values="0;22" dur="1.3s" repeatCount="indefinite"/>
   </line>
   <text x="656" y="500" font-family="IBM Plex Mono" font-size="10" fill="#f97316" font-weight="600">COOLANT OUT</text>
 
-  <!-- Water exhaust -->
   <line x1="600" y1="252" x2="770" y2="132" stroke="#a78bfa" stroke-width="2.6"
         marker-end="url(#aW)" stroke-dasharray="6 4">
     <animate attributeName="stroke-dashoffset" values="0;20" dur="1.6s" repeatCount="indefinite"/>
@@ -445,12 +394,10 @@ def _fc_html(width=780, height=480, dim=False, grow=False):
   <text x="774" y="126" font-family="IBM Plex Mono" font-size="12" fill="#a78bfa" font-weight="600">H₂O</text>
   <text x="768" y="142" font-family="IBM Plex Mono" font-size="9" fill="#a78bfa" letter-spacing="0.06em">EXHAUST</text>
 
-  <!-- Title -->
   <text x="460" y="55" text-anchor="middle" font-family="IBM Plex Mono"
         font-size="18" fill="#f1f5f9" font-weight="600"
         letter-spacing="0.16em">TFCM2-F</text>
 
-  <!-- Dimensions footer -->
   <text x="460" y="547" text-anchor="middle" font-family="IBM Plex Mono"
         font-size="9" fill="#475569" letter-spacing="0.06em">
     1270 × 630 × 410 mm  |  Toyota Fuel Cell Stack Module
@@ -461,10 +408,6 @@ def _fc_html(width=780, height=480, dim=False, grow=False):
 
 # ── PLOT HELPER ───────────────────────────────────────────────────────────────
 def mini_plot(x, traces, title, y_label, height=220):
-    """
-    traces: list of (y_arr, name, color, dash)
-    dash:   'solid' | 'dash' | 'dot'
-    """
     fig = go.Figure()
     for y, name, color, dash in traces:
         fig.add_trace(go.Scatter(
@@ -486,11 +429,6 @@ _defaults = {
     'dt'           : 0.1,
     't_start_K'    : 295.15,
     'results'      : None,
-    # has_real_data: True only when input comes from a real VehicleSpy CSV.
-    # False for the block-built drive cycle — that produces prediction-only outputs.
-    # This flag controls whether measured traces appear alongside predicted ones
-    # in the dashboard, avoiding the case where zero-arrays get plotted as
-    # "Measured" when no real sensor data exists.
     'has_real_data': False,
     'input_mode'   : 'csv',
     'models'       : None,
@@ -522,13 +460,6 @@ ensure_models()
 # ==============================================================================
 @st.dialog("Model Architecture", width="large")
 def _show_architecture_dialog():
-    """
-    Moved out of the inline expander into a real modal. The narrative reads
-    well but is long, and inside an expander it pushed the whole page down,
-    forcing a scroll through the entire GUI just to finish reading. A dialog
-    scrolls independently of the main page, so the content itself didn't need
-    to be trimmed, it's the same full narrative, just contained.
-    """
     _narrative = [
         ("01 · THE REQUEST ARRIVES", "The Request Arrives",
          "Every simulation starts as one number changing over time: power "
@@ -610,7 +541,6 @@ def _show_architecture_dialog():
 
 
 def render_panel1():
-    # ── Page header ───────────────────────────────────────────────────────────
     st.markdown('<div class="panel-title">Toyota KAUST Clean Combustion Research Center</div>',
                 unsafe_allow_html=True)
     st.markdown('<div class="main-title">TFCM2-F Digital Twin</div>', unsafe_allow_html=True)
@@ -625,10 +555,8 @@ def render_panel1():
 
     st.markdown('<hr class="h-rule">', unsafe_allow_html=True)
 
-    # Three-column layout: ambient+SVG | drive cycle | architecture+launch
     left, mid, right = st.columns([1.1, 1.5, 1.0], gap="large")
 
-    # ── LEFT COLUMN: ambient conditions ────────────────────────────────────────
     with left:
         st.markdown('<div class="panel-title">Ambient Conditions</div>', unsafe_allow_html=True)
 
@@ -642,14 +570,12 @@ def render_panel1():
             "drive cycle begins. These feed directly into the physics core's "
             "Springer membrane hydration model and the T_in thermal integrator.")
 
-    # ── MIDDLE COLUMN: drive cycle input ──────────────────────────────────────
     with mid:
         st.markdown('<div class="panel-title">Drive Cycle Input</div>', unsafe_allow_html=True)
 
         mode = st.radio("Drive cycle input mode", ["Upload CSV", "Drive Cycle Builder"],
                         horizontal=True, label_visibility="collapsed")
 
-        # ── CSV upload ────────────────────────────────────────────────────────
         if mode == "Upload CSV":
             st.session_state.input_mode = 'csv'
             f = st.file_uploader("VehicleSpy CSV export", type=["csv"],
@@ -660,12 +586,9 @@ def render_panel1():
                     df, dt, t_s = process_fc_data_from_upload(f)
                     st.session_state.df_input      = df
                     st.session_state.dt            = dt
-                    # Mark that real sensor data is present so Panel 3 can overlay
-                    # measured traces alongside predicted ones.
                     st.session_state.has_real_data = True
                     st.success(
                         f"Loaded {len(df):,} rows  |  dt={dt:.3f}s  |  T_start={t_s-273.15:.1f}°C")
-                    # Power preview chart
                     fig = go.Figure(go.Scatter(
                         x=df['time'], y=df['power_request']/1000,
                         mode='lines', line=dict(color=COLORS['orange'], width=1.2)))
@@ -677,25 +600,14 @@ def render_panel1():
                     st.session_state.df_input      = None
                     st.session_state.has_real_data = False
             else:
-                # No file currently sitting in the uploader — this covers a
-                # first-time visit, the file having been removed, and mode
-                # having been switched away and back (which can reset the
-                # uploader). Previously df_input from a prior CSV upload, or
-                # from a prior Drive Cycle Builder session, was left in place
-                # here, so Run would silently execute against stale data with
-                # no CSV actually present. Explicitly clearing both here means
-                # Run stays disabled until a real file is present again.
                 st.session_state.df_input      = None
                 st.session_state.has_real_data = False
 
-        # ── Drive Cycle Builder (Vehicle Spy-style block editor) ───────────────
         else:
             st.session_state.input_mode    = 'blocks'
-            # Block-built cycles have no real sensor data
             st.session_state.has_real_data = False
             render_block_editor()
 
-    # ── RIGHT COLUMN: compact "Learn More" expander ───────────────────────────
     with right:
         st.markdown('<div class="panel-title">Model Info</div>', unsafe_allow_html=True)
         st.markdown(
@@ -709,7 +621,6 @@ def render_panel1():
                     width="stretch"):
             _show_architecture_dialog()
 
-    # ── FULL-WIDTH CENTERED BLOCK: fuel cell model + run button ───────────────
     st.markdown('<hr class="h-rule">', unsafe_allow_html=True)
 
     components.html(_fc_html(width=820, height=440), height=444, scrolling=False)
@@ -748,27 +659,12 @@ def render_panel1():
 
 # ==============================================================================
 # BLOCK EDITOR — Vehicle Spy style drive cycle builder
-#
-# Three block types only, mirroring Vehicle Spy's Function Block primitives:
-#   SET VALUE  — instantly sets the power request to a target (zero duration)
-#   WAIT FOR   — holds whatever the power request currently is for N seconds
-#   RAMP TO    — linearly ramps from whatever the current value is to a target,
-#                over N seconds (Ramp + Time are one paired block, per your note)
-#
-# Blocks are resolved sequentially: a running "current power" state is tracked
-# block-by-block, exactly like reading a Vehicle Spy script top to bottom. This
-# reuses model_core.build_drive_cycle_from_table() unchanged — the resolver
-# below just turns the block stack into the same (type, power_kw,
-# power_start_kw, duration_s) step list the table builder already expected.
 # ==============================================================================
 
 BLOCK_LABELS = {'set': 'SET', 'wait': 'WAIT', 'ramp': 'RAMP'}
 BLOCK_COLORS = {'set': COLORS['orange'], 'wait': COLORS['blue'], 'ramp': COLORS['purple']}
 
 _block_defaults = {
-    # Starts empty on purpose — the user builds the cycle from scratch using
-    # the add buttons below, rather than being handed a pre-filled template
-    # to edit or delete their way out of.
     'cycle_blocks': [],
     'next_block_id': 0,
 }
@@ -778,12 +674,6 @@ for k, v in _block_defaults.items():
 
 
 def _resolve_blocks_to_steps(blocks):
-    """
-    Walks the block stack top to bottom, tracking a running 'current power'
-    state exactly like a Vehicle Spy script interpreter would. Returns the
-    same step-dict format build_drive_cycle_from_table already consumes, so
-    no changes were needed in model_core.py for this feature.
-    """
     steps = []
     state = 0.0
     for b in blocks:
@@ -808,12 +698,6 @@ def _resolve_blocks_to_steps(blocks):
 
 
 def _block_preview_text(block, running_state, running_time):
-    """One-line, sentence-style description of what a block resolves to —
-    mirrors the 'Description | Value' readability of the Vehicle Spy editor.
-    Wait For and Ramp To now also show the cumulative elapsed time they start
-    at, the same way Set Value already carries forward the running power
-    value, so the whole stack reads as one continuous timeline instead of
-    each block only showing its own local duration in isolation."""
     if block['block_type'] == 'set':
         return f"→ jumps to {block['power_kw']:.0f} kW instantly (at t={running_time:.0f}s)"
     if block['block_type'] == 'wait':
@@ -836,10 +720,6 @@ def render_block_editor():
             "jumps instantly, **Wait For** holds, **Ramp To** transitions from "
             "whatever the value currently is.")
     with cap_r:
-        # Explicit reset, separate from "return to home". Going back home
-        # leaves the cycle exactly as-built, since you might only want to
-        # change one block, not lose the whole thing. This button is the
-        # only way the cycle actually gets wiped clean.
         if st.button("🗑 Clear All", width="stretch",
                     disabled=(len(blocks) == 0)):
             st.session_state.cycle_blocks = []
@@ -920,22 +800,15 @@ def render_block_editor():
                 blocks.pop(idx)
                 st.rerun()
 
-        # Sentence-style resolved preview, using state and elapsed time as-of
-        # this block
         st.markdown(
             f'<div class="blk-preview">{_block_preview_text(b, running_state, running_time)}</div>',
             unsafe_allow_html=True)
 
-        # Advance running_state and running_time the same way the resolver
-        # does, so every subsequent block's preview reflects what actually
-        # happens at runtime. Only Wait For and Ramp To consume time, Set
-        # Value is instantaneous.
         if b['block_type'] in ('set', 'ramp'):
             running_state = b['power_kw']
         if b['block_type'] in ('wait', 'ramp'):
             running_time += b['duration_s']
 
-    # ── Add block buttons ──────────────────────────────────────────────────
     a1, a2, a3 = st.columns(3)
     with a1:
         if st.button("＋ Set Value", width="stretch"):
@@ -961,7 +834,6 @@ def render_block_editor():
             st.session_state.next_block_id += 1
             st.rerun()
 
-    # ── Resolve + preview chart ────────────────────────────────────────────
     if blocks:
         from model_core import build_drive_cycle_from_table
         steps = _resolve_blocks_to_steps(blocks)
@@ -985,17 +857,9 @@ def render_block_editor():
 
 
 # ==============================================================================
-# PANEL 2 — LOADING / INFERENCE (full-screen takeover)
+# PANEL 2 — LOADING / INFERENCE
 # ==============================================================================
 def render_panel2():
-    # Scoped CSS — only injected while Panel 2 is showing. Hides Streamlit's
-    # top chrome bar and vertically centers the block-container at close to
-    # full viewport height. The header is faded/collapsed via opacity + max-
-    # height transitions rather than an instant display:none, which is what
-    # was causing the "glitchy" snap when jumping from Panel 1 into Panel 2 —
-    # an abrupt display:none removes the element from layout in a single
-    # frame with no interpolation, while a transitioned opacity/max-height
-    # collapse reads as a smooth fade instead of a jump cut.
     st.markdown("""
     <style>
       [data-testid="stHeader"] {
@@ -1006,16 +870,6 @@ def render_panel2():
       .block-container {
           display: flex;
           flex-direction: column;
-          /* justify-content: center previously centered this block inside a
-             fixed 92vh box. When the content (title + FC render + progress +
-             stage label) was taller than 92vh, centering pushed the excess
-             ABOVE the container's top edge — since the page was already
-             scrolled to y=0, that excess sat at a negative scroll position
-             with no way to reach it, which is exactly what showed up as
-             clipping. Anchoring to flex-start with a small top/bottom margin
-             keeps everything reachable: it still reads as centered on a
-             normal-height screen, and on a short screen it scrolls instead
-             of clipping. */
           justify-content: flex-start;
           align-items: center;
           min-height: 100vh;
@@ -1031,20 +885,6 @@ def render_panel2():
       .stage-label { animation: fcFadeIn 0.3s ease both; }
     </style>
     <script>
-      // Reset scroll position on mount — if the user had to scroll down in
-      // Panel 1 to reach the RUN button, the browser keeps that scroll offset
-      // across the rerun, which made Panel 2's centered content look cut off
-      // or shifted on first paint.
-      //
-      // For SHORT cycles a single scrollTo() here was enough. For LONGER
-      // cycles, where the blocking run_inference() call keeps this screen up
-      // for a while, the page was drifting off-center again partway through,
-      // most likely something in the spinner's status updates during that
-      // wait pulling scroll focus. A one-time reset can't correct drift that
-      // happens later in a call that's already running, so this now
-      // re-applies on an interval for as long as Panel 2 is plausibly on
-      // screen, with a generous safety timeout so it can't fight the user
-      // once Panel 3 has actually loaded.
       window.parent.scrollTo({top: 0, behavior: 'instant'});
       const _scrollLock = setInterval(() => {
         window.parent.scrollTo({top: 0, behavior: 'instant'});
@@ -1066,10 +906,6 @@ def render_panel2():
             'Physics-ML inference pipeline running</div>', unsafe_allow_html=True)
         st.markdown('<div style="height:10px"></div>', unsafe_allow_html=True)
 
-        # Large, fully-opaque fuel cell render with the grow-in transition —
-        # this is the same model as Panel 1, just significantly bigger and
-        # front-and-center since it's now the visual anchor of the whole
-        # screen rather than competing with input widgets for space.
         components.html(_fc_html(width=760, height=430, dim=False, grow=True),
                         height=434, scrolling=False)
 
@@ -1089,11 +925,6 @@ def render_panel2():
         try:
             from model_core import run_inference
 
-            # Finer-grained progress fill instead of 5 big discrete jumps.
-            # Each stage is subdivided into several small steps so the bar
-            # fills smoothly rather than snapping in 20% increments, which
-            # read as choppy/glitchy against the otherwise-smooth SVG
-            # animations running underneath it.
             steps_per_stage = 8
             total_steps     = len(stages) * steps_per_stage
             step_count      = 0
@@ -1110,19 +941,7 @@ def render_panel2():
                 for s in range(steps_per_stage):
                     step_count += 1
                     prog_bar.progress(step_count / total_steps)
-                    # Actually run inference on the final micro-step of the
-                    # final stage, once the bar has visually caught up to it.
-                    #
-                    # This call is a synchronous, per-timestep Python loop
-                    # (predict_voltage_loop in model_core.py), so its runtime
-                    # scales with how many timesteps the drive cycle has.
-                    # Once it starts, Streamlit can't update anything on
-                    # screen until it returns, so the progress bar was
-                    # previously just freezing here with no explanation for
-                    # longer cycles, which reads as broken rather than busy.
-                    # A spinner plus an honest status line makes clear this
-                    # step's duration isn't fixed, instead of implying a
-                    # fast, fixed-time countdown that then silently stalls.
+
                     if is_last_stage and s == steps_per_stage - 1:
                         n_steps = len(st.session_state.df_input)
                         status_ph.markdown(
@@ -1169,17 +988,10 @@ def render_panel3():
         st.rerun()
 
     t        = r['time']
-    # Use the session-state flag set at input time — not a runtime array check.
-    # This correctly distinguishes "real CSV with sensor data" from
-    # "block-built cycle where sensor columns are all zeros".
     has_real = st.session_state.has_real_data
 
-    # Small top spacer so the header row (and the return/download buttons in
-    # particular) don't sit flush against the very top edge of the viewport —
-    # that's what was causing the clipping on the top-right buttons.
     st.markdown('<div style="height:14px"></div>', unsafe_allow_html=True)
 
-    # ── Header row ────────────────────────────────────────────────────────────
     hl, hr = st.columns([3, 1])
     with hl:
         st.markdown(
@@ -1188,7 +1000,6 @@ def render_panel3():
         st.markdown(
             '<div class="main-title" style="font-size:20px">Telemetry Dashboard</div>',
             unsafe_allow_html=True)
-        # Show mode indicator under the title so it's obvious which mode is active
         if has_real:
             st.markdown(
                 '<div class="sub-title">📊  Measured vs Predicted — CSV validation mode</div>',
@@ -1205,8 +1016,7 @@ def render_panel3():
             st.session_state.results       = None
             st.session_state.has_real_data = False
             st.rerun()
-        # Build output CSV — always contains predicted values; real values added
-        # as extra columns only when has_real is True
+        
         out_cols = {
             'time_s'             : t,
             'power_request_kW'   : r['power_request'],
@@ -1239,17 +1049,8 @@ def render_panel3():
     st.markdown('<hr class="h-rule">', unsafe_allow_html=True)
 
     # ── KPI strip ─────────────────────────────────────────────────────────────
-    # Border color ties every KPI card to the run mode directly, orange for
-    # CSV mode (real measured data backing these numbers), slate for
-    # Predict-only mode (twin output with nothing to validate against yet).
-    # Previously the only mode signal was the small subtitle text above the
-    # whole dashboard, easy to miss on a fast skim.
     kpi_border = COLORS['orange'] if has_real else COLORS['slate']
 
-    # R² between measured and predicted stack voltage — the same pairing
-    # shown in the Polarization Curve plot above, just as a single summary
-    # number. Only meaningful in CSV mode, since Predict-only mode has no
-    # measured voltage to compare against.
     if has_real:
         ss_res = np.sum((r['V_real'] - r['V_final']) ** 2)
         ss_tot = np.sum((r['V_real'] - np.mean(r['V_real'])) ** 2)
@@ -1263,9 +1064,6 @@ def render_panel3():
         ("Peak Net Power", f"{r['p_net_kw'].max():.1f} kW"),
         ("Total H₂",       f"{r['h2_cumulative_g'][-1]:.1f} g"),
         ("Peak T_stack",   f"{r['T_stack_K'].max()-273.15:.1f} °C"),
-        # "Net/Gross Ratio" — previously labeled "Avg Efficiency", but net over
-        # gross power is balance-of-plant overhead, not electrochemical
-        # efficiency, relabeled so it can't be misread as voltage-based.
         ("Net/Gross Ratio",
          f"{(r['p_net_kw']/np.maximum(r['p_gross_kw'],0.001)).mean()*100:.1f} %"),
         ("Cycle Duration", f"{t[-1]:.0f} s"),
@@ -1281,17 +1079,7 @@ def render_panel3():
 
     st.markdown('<div style="height:8px"></div>', unsafe_allow_html=True)
 
-    # ── Conditional trace helper ───────────────────────────────────────────────
     def overlay(pred_y, pred_label, real_y=None, real_label="Measured"):
-        """
-        Returns a trace list for mini_plot.
-        Always uses the fixed MEASURED_COLOR / PREDICTED_COLOR pair (blue/red)
-        rather than a per-channel color, so every overlay plot in the dashboard
-        reads the same way at a glance instead of forcing the viewer to relearn
-        which color means "real" on each individual chart.
-        When has_real is False (block-built mode), returns only the predicted
-        trace as a solid line, no zero-array ghosts polluting the plots.
-        """
         if has_real and real_y is not None:
             return [
                 (real_y,  real_label,  MEASURED_COLOR,  'solid'),
@@ -1299,45 +1087,36 @@ def render_panel3():
             ]
         return [(pred_y, pred_label, PREDICTED_COLOR, 'solid')]
 
-    # KEY METRICS: Polarization curve, H2 consumption, Net power
-    # These three are the plots someone actually wants at a glance, everything
-    # else is real but secondary, and now lives in the collapsed category
-    # expanders below instead of competing for attention up top.
     st.markdown('<div class="panel-title" style="margin-top:4px">Key Metrics</div>',
                 unsafe_allow_html=True)
     hp1, hp2, hp3 = st.columns(3)
 
     with hp1:
-        # Polarization uses current density on x-axis. Previously plotted as
-        # faint scatter markers, low opacity read poorly against the black
-        # background. Now rendered as a proper line, current density isn't
-        # naturally ordered along the time series, so each trace is sorted by
-        # current density first, otherwise a line would zig-zag between
-        # out-of-order time-adjacent points instead of tracing a clean curve.
         fig = go.Figure()
+        
         if has_real:
-            # Sorted and plotted against the REAL measured current density,
-            # not the twin's predicted one. Using the twin's current density
-            # to sort/plot the measured trace was the actual bug behind the
-            # jagged, criss-crossing look, the two current density arrays
-            # are close but never identical, so reordering one signal's
-            # values using the other's sort order scrambled the pairing.
-            order_real = np.argsort(r['current_density_real'])
             fig.add_trace(go.Scatter(
-                x=r['current_density_real'][order_real], y=r['V_real'][order_real],
-                mode='lines', name='Measured',
-                line=dict(color=MEASURED_COLOR, width=2.2)))
-        order_twin = np.argsort(r['current_density'])
+                x=r['current_density_real'], 
+                y=r['V_real'],
+                mode='markers', 
+                name='Measured',
+                marker=dict(color=MEASURED_COLOR, size=3, opacity=0.4)
+            ))
+            
         fig.add_trace(go.Scatter(
-            x=r['current_density'][order_twin], y=r['V_final'][order_twin],
-            mode='lines', name='Twin',
-            line=dict(color=PREDICTED_COLOR, width=2.2)))
-        fig.update_layout(**{**PLOT_LAYOUT,
-            'title': dict(text='Polarization Curve', font=dict(size=10)),
-            'xaxis': dict(title='Current Density (A/m²)',
-                          gridcolor='#1e2433', tickfont=dict(size=9)),
-            'yaxis': dict(title='Stack Voltage (V)',
-                          gridcolor='#1e2433', tickfont=dict(size=9))})
+            x=r['current_density'], 
+            y=r['V_final'],
+            mode='markers', 
+            name='Twin',
+            marker=dict(color=PREDICTED_COLOR, size=3, opacity=0.5)
+        ))
+        
+        fig.update_layout(**{
+            **PLOT_LAYOUT,
+            'title': dict(text='Polarization Operating Cloud', font=dict(size=10)),
+            'xaxis': dict(title='Current Density (A/m²)', gridcolor='#1e2433', tickfont=dict(size=9)),
+            'yaxis': dict(title='Stack Voltage (V)', gridcolor='#1e2433', tickfont=dict(size=9))
+        })
         st.plotly_chart(fig, width="stretch")
 
     with hp2:
@@ -1353,14 +1132,6 @@ def render_panel3():
             'Net Power Output (kW)', 'kW'), width="stretch")
 
     st.markdown('<div style="height:10px"></div>', unsafe_allow_html=True)
-
-    # CATEGORY GROUPS
-    # Collapsed by default, same pattern as the Learn More section elsewhere,
-    # so a fast glance only ever sees the three headline plots above, while a
-    # full audit can still open every category to see all eleven remaining
-    # plots. Nothing here was dropped from the original fourteen, except the
-    # H2 rate vs power scatter, which was low value on its own since the same
-    # relationship is already visible in the H2 Consumption Rate plot above.
 
     with st.expander("🌡  Thermal Tracking"):
         tc1, tc2 = st.columns(2)
@@ -1378,13 +1149,6 @@ def render_panel3():
                         r['T_out_real']-273.15, 'T_out Measured'),
                 'Coolant Outlet T_out (°C)', '°C'), width="stretch")
 
-            # Two actuators on one plot, bypass and coolant pump. These are
-            # different physical quantities (flow rate vs pump speed) with
-            # very different magnitudes, so this uses a secondary y-axis,
-            # mirroring the twinx() split from the original notebook. Color
-            # follows the global convention (blue = measured, red =
-            # predicted); which actuator is which is carried by line style
-            # (solid = bypass, dotted = pump).
             fig = go.Figure()
             if has_real:
                 fig.add_trace(go.Scatter(x=t, y=r['bypass_flow_real']*1000, mode='lines',
@@ -1446,9 +1210,6 @@ def render_panel3():
                         r['p_gross_real_kw'], 'Measured'),
                 'Gross Power Output (kW)', 'kW'), width="stretch")
         with ac2:
-            # Stacked area breakdown of auxiliary losses. Compressor is
-            # yellow rather than red, since red is reserved elsewhere on the
-            # dashboard to mean "predicted".
             fig = go.Figure()
             fig.add_trace(go.Scatter(x=t, y=r['p_comp_kw'],      mode='lines',
                                      name='Compressor',
@@ -1467,7 +1228,6 @@ def render_panel3():
                 'yaxis': dict(title='kW', gridcolor='#1e2433', tickfont=dict(size=9))})
             st.plotly_chart(fig, width="stretch")
 
-    # ── Parameters panel ──────────────────────────────────────────────────────
     st.markdown('<hr class="h-rule">', unsafe_allow_html=True)
     st.markdown('<div class="panel-title">Identified Physical Parameters</div>',
                 unsafe_allow_html=True)
