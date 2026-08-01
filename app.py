@@ -75,6 +75,42 @@ html, body, [class*="css"] {
     color: #f97316;
     font-weight: 600;
 }
+div[data-testid="stPopover"] button {
+    padding: 2px 8px !important;
+    font-size: 10px !important;
+    font-family: 'IBM Plex Mono', monospace !important;
+    color: #64748b !important;
+    background: transparent !important;
+    border: 1px solid #1e2433 !important;
+    min-height: 0 !important;
+    line-height: 1.4 !important;
+    margin-top: -6px !important;
+}
+div[data-testid="stPopover"] button:hover {
+    color: #f97316 !important;
+    border-color: #f97316 !important;
+}
+.param-def-heading {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12px;
+    color: #f97316;
+    margin-bottom: 6px;
+}
+.param-def-body {
+    font-size: 12px;
+    color: #cbd5e1;
+    line-height: 1.5;
+    margin-bottom: 8px;
+}
+.param-def-eq {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    color: #94a3b8;
+    background: #0d0f16;
+    border: 1px solid #1e2433;
+    border-radius: 4px;
+    padding: 8px 10px;
+}
 .badge-active {
     display: inline-block;
     background: #f97316;
@@ -1309,12 +1345,130 @@ def render_panel3():
             ("heat_gain",    f"{tp['heat_gain']:.4e} K/(W·s)",       "T_in heat gain coefficient"),
             ("cool_base",    f"{tp['cooling_base']:.4e} Hz",    "T_in baseline cooling"),
             ("cool_wp",      f"{tp['cooling_wp']:.4e} Hz/rps",      "Water pump cooling coeff"),
+            ("cool_bp",      f"{tp['cooling_bp']:.4e} Hz/(kg/s)",   "Bypass flow cooling coeff"),
             ("cool_ci",      f"{tp['cooling_interact']:.4e} 1/(rps·kg)",      "Pump-bypass interaction"),
             ("P_ref",        f"{ap['P_ref']:.0f} W",         "Compressor reference power"),
             ("N_ref",        f"{ap['N_ref']:.0f} RPM",       "Compressor reference speed"),
             ("aux_frac",     f"{ap['AUX_SMALL_FRACTION']*100:.2f}%", "Small pump fraction"),
             ("N_cells",      "330",                           "Stack cell count"),
         ]
+
+        PARAM_DEFINITIONS = {
+            "i_n": {
+                "name": "Internal Current Density Loss",
+                "definition": "Current lost to hydrogen crossing the membrane and reacting "
+                               "internally, without producing usable output. Keeps the "
+                               "activation term from blowing up at zero external load.",
+                "equation": "V_act = (RT / αnF) · ln[(i + i_n) / i₀]",
+            },
+            "i₀": {
+                "name": "Exchange Current Density",
+                "definition": "The reaction's baseline willingness to proceed at equilibrium "
+                               "(80°C reference, Arrhenius-corrected for actual stack "
+                               "temperature). Higher i₀ means a smaller activation voltage "
+                               "drop at low current.",
+                "equation": "V_act = (RT / αnF) · ln[(i + i_n) / i₀]",
+            },
+            "α": {
+                "name": "Charge Transfer Coefficient",
+                "definition": "How symmetric the reaction's energy barrier is between the "
+                               "forward and reverse direction. Sets the slope of the "
+                               "activation voltage drop.",
+                "equation": "V_act = (RT / αnF) · ln[(i + i_n) / i₀]",
+            },
+            "k_λ": {
+                "name": "Membrane Hydration Scaling",
+                "definition": "How strongly current density re-hydrates the membrane through "
+                               "water produced by the reaction. Drives the membrane's "
+                               "steady-state water content, which sets conductivity.",
+                "equation": "λ_ss = λ_base + k_λ·(i / 12000) − k_dry·(T − 353.15)",
+            },
+            "m_trans": {
+                "name": "Mass Transport Scaling",
+                "definition": "Sets the size of the voltage crash at high current, when "
+                               "reactants can't diffuse to the reaction sites fast enough.",
+                "equation": "V_conc = m_trans · (e^(n_growth·i) − 1)",
+            },
+            "n_growth": {
+                "name": "Mass Transport Amplification",
+                "definition": "Controls how suddenly the high-current voltage crash kicks in, "
+                               "how close the stack is to its limiting current before losses "
+                               "accelerate.",
+                "equation": "V_conc = m_trans · (e^(n_growth·i) − 1)",
+            },
+            "k_dry": {
+                "name": "Thermal Drying Coefficient",
+                "definition": "The counterpart to k_λ, heat drives water out of the membrane "
+                               "over time, hurting conductivity as stack temperature climbs "
+                               "above the 80°C reference.",
+                "equation": "λ_ss = λ_base + k_λ·(i / 12000) − k_dry·(T − 353.15)",
+            },
+            "hA": {
+                "name": "Convective Heat Conductance",
+                "definition": "How efficiently heat moves from the stack into the coolant "
+                               "loop. Sets how fast stack temperature responds to the gap "
+                               "between stack and coolant inlet temperature.",
+                "equation": "Q_conv = hA · (T_stack − T_in)",
+            },
+            "heat_gain": {
+                "name": "T_in Heat Gain Coefficient",
+                "definition": "How much of the electrical power request shows up as heat "
+                               "entering the coolant inlet thermal model per second.",
+                "equation": "T[i] = T[i−1] + (heat_gain·P − k_cool·(T[i−1] − T_amb))·dt",
+            },
+            "cool_base": {
+                "name": "T_in Baseline Cooling",
+                "definition": "The fixed portion of coolant loop cooling that applies "
+                               "regardless of pump speed or bypass flow.",
+                "equation": "k_cool = cool_base + cool_wp·wp^0.8 + cool_bp·bp + cool_ci·wp·bp",
+            },
+            "cool_wp": {
+                "name": "Water Pump Cooling Coefficient",
+                "definition": "How much additional cooling the coolant inlet model gains "
+                               "from increased coolant pump speed.",
+                "equation": "k_cool = cool_base + cool_wp·wp^0.8 + cool_bp·bp + cool_ci·wp·bp",
+            },
+            "cool_bp": {
+                "name": "Bypass Flow Cooling Coefficient",
+                "definition": "How much additional cooling the coolant inlet model gains "
+                               "from increased bypass valve flow, independent of pump speed.",
+                "equation": "k_cool = cool_base + cool_wp·wp^0.8 + cool_bp·bp + cool_ci·wp·bp",
+            },
+            "cool_ci": {
+                "name": "Pump-Bypass Interaction",
+                "definition": "Captures the combined, non-additive cooling effect when both "
+                               "pump speed and bypass flow increase together.",
+                "equation": "k_cool = cool_base + cool_wp·wp^0.8 + cool_bp·bp + cool_ci·wp·bp",
+            },
+            "P_ref": {
+                "name": "Compressor Reference Power",
+                "definition": "The air compressor's power draw at its reference operating "
+                               "speed, the anchor point for the cubic fan affinity power law.",
+                "equation": "P_comp = P_ref · (N_comp / N_ref)³",
+            },
+            "N_ref": {
+                "name": "Compressor Reference Speed",
+                "definition": "The compressor RPM corresponding to P_ref, used to scale "
+                               "compressor speed with air pressure ratio via the fan affinity "
+                               "law.",
+                "equation": "N_comp = N_ref · (P_air / P_atm)^0.5",
+            },
+            "aux_frac": {
+                "name": "Small Pump Fraction",
+                "definition": "The share of gross stack power consumed by small auxiliary "
+                               "pumps (coolant, H2 recirculation), modeled as a fixed "
+                               "fraction of gross output.",
+                "equation": "P_aux_small = P_gross · aux_frac",
+            },
+            "N_cells": {
+                "name": "Stack Cell Count",
+                "definition": "The number of individual cells in series that make up the "
+                               "TFCM2-F stack. Multiplies single-cell voltage to get total "
+                               "stack voltage.",
+                "equation": "V_stack = (V_n − V_act − V_ohmic − V_conc) · N_cells",
+            },
+        }
+
         param_cols = st.columns(4)
         for i, (sym, val, desc) in enumerate(params_display):
             with param_cols[i % 4]:
@@ -1328,6 +1482,16 @@ def render_panel3():
                     <span class="param-value" style="font-size:13px;">{val}</span>
                   </div>
                 </div>""", unsafe_allow_html=True)
+
+                defn = PARAM_DEFINITIONS.get(sym)
+                if defn:
+                    with st.popover("ⓘ definition", use_container_width=True):
+                        st.markdown(f'<div class="param-def-heading">{defn["name"]}</div>',
+                                    unsafe_allow_html=True)
+                        st.markdown(f'<div class="param-def-body">{defn["definition"]}</div>',
+                                    unsafe_allow_html=True)
+                        st.markdown(f'<div class="param-def-eq">{defn["equation"]}</div>',
+                                    unsafe_allow_html=True)
 
 
 # ==============================================================================
