@@ -637,8 +637,8 @@ def render_panel1():
     with left:
         st.markdown('<div class="panel-title">Ambient Conditions</div>', unsafe_allow_html=True)
 
-        t_room = st.slider("Starting Room Temperature (°C)", 15.0, 45.0, 22.0, 0.5)
-        rh_val = st.slider("Relative Humidity", 0.0, 1.0, 0.48, 0.01, format="%.2f")
+        t_room = st.slider("Starting Room Temperature (°C)", 15.0, 60.0, 21.0, 0.5)
+        rh_val = st.slider("Relative Humidity", 0.0, 1.0, 0.5, 0.01, format="%.2f")
         st.session_state.t_start_K = t_room + 273.15
 
         st.markdown('<div style="height:8px"></div>', unsafe_allow_html=True)
