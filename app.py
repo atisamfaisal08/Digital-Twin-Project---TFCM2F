@@ -637,8 +637,8 @@ def render_panel1():
     with left:
         st.markdown('<div class="panel-title">Ambient Conditions</div>', unsafe_allow_html=True)
 
-        t_room = st.slider("Starting Room Temperature (°C)", 15.0, 60.0, 21.0, 0.5)
-        rh_val = st.slider("Relative Humidity", 0.0, 1.0, 0.5, 0.01, format="%.2f")
+        t_room = st.slider("Starting Room Temperature (°C)", 15.0, 60.0, 22.0, 0.5)
+        rh_val = st.slider("Relative Humidity", 0.0, 1.0, 0.48, 0.01, format="%.2f")
         st.session_state.t_start_K = t_room + 273.15
 
         st.markdown('<div style="height:8px"></div>', unsafe_allow_html=True)
@@ -655,17 +655,33 @@ def render_panel1():
 
         if mode == "Upload CSV":
             st.session_state.input_mode = 'csv'
-            f = st.file_uploader("VehicleSpy CSV export", type=["csv"],
-                                 label_visibility="collapsed")
+            f = st.file_uploader(
+                "VehicleSpy / FC_A export, or a simple time + power CSV",
+                type=["csv"], label_visibility="collapsed")
             if f:
                 try:
-                    from model_core import process_fc_data_from_upload
-                    df, dt, t_s = process_fc_data_from_upload(f)
+                    from model_core import process_fc_data_from_upload_auto
+                    df, dt, t_s, is_simple = process_fc_data_from_upload_auto(f)
                     st.session_state.df_input      = df
                     st.session_state.dt            = dt
-                    st.session_state.has_real_data = True
-                    st.success(
-                        f"Loaded {len(df):,} rows  |  dt={dt:.3f}s  |  T_start={t_s-273.15:.1f}°C")
+                    # A simple power+time file carries no sensor channels
+                    # beyond power and time, so there's nothing measured to
+                    # overlay against, same as a function-block-built cycle.
+                    st.session_state.has_real_data = not is_simple
+
+                    if is_simple:
+                        st.info(
+                            f"Loaded {len(df):,} rows  |  dt={dt:.3f}s  |  "
+                            f"simple power+time CSV detected, no sensor "
+                            f"channels found. ECUs will predict every other "
+                            f"channel from power alone (PREDICT MODE). "
+                            f"Starting temperature is taken from the slider "
+                            f"above, not the file.")
+                    else:
+                        st.success(
+                            f"Loaded {len(df):,} rows  |  dt={dt:.3f}s  |  "
+                            f"T_start={t_s-273.15:.1f}°C")
+
                     fig = go.Figure(go.Scatter(
                         x=df['time'], y=df['power_request']/1000,
                         mode='lines', line=dict(color=COLORS['orange'], width=1.2)))

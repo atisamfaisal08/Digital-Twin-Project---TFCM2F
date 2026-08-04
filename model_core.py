@@ -343,6 +343,91 @@ def _resolve_column(field_key, columns):
         f"Expected one of: {', '.join(candidates)}.")
 
 
+# ── SIMPLE POWER + TIME CSV SUPPORT ───────────────────────────────────────────
+# A minimal drive cycle CSV containing only a time column and a power request
+# column, nothing else. This is the "crude but functional" alternative to a
+# full VehicleSpy/FC_A sensor export: every other channel the pipeline needs
+# (current density, bypass flow, wp_rps, h2/air pressure, coolant temps, etc.)
+# is simply absent from a file like this, so it's zero-filled here exactly
+# the way build_drive_cycle_from_table() zero-fills it for a manually built
+# cycle. The ECU sub-models then predict every one of those channels from
+# power_request alone during inference, so this is functionally identical to
+# a "PREDICT MODE" run built from the block editor, just sourced from a CSV.
+_SIMPLE_TIME_CANDIDATES  = ['time', 'Time', 'Time (abs)', 't', 'Time (s)']
+_SIMPLE_POWER_CANDIDATES = ['power_request', 'Power Request', 'Power (kW)',
+                             'Power', 'power', 'POWERREQ_A (Value [W])']
+
+
+def _looks_like_simple_power_csv(columns):
+    """True only if the file has a resolvable time + power column AND does
+    NOT contain a voltage column from either known full schema. Voltage is
+    used as the trigger for "this is actually a full sensor export", so a
+    real VSpy/FC_A file with extra columns never gets misrouted here, only
+    a genuinely minimal file gets treated as simple."""
+    has_time    = any(c in columns for c in _SIMPLE_TIME_CANDIDATES)
+    has_power   = any(c in columns for c in _SIMPLE_POWER_CANDIDATES)
+    has_voltage = (COLUMN_SCHEMA_VSPY['voltage'] in columns
+                   or COLUMN_SCHEMA_FC_A['voltage'] in columns)
+    return has_time and has_power and not has_voltage
+
+
+def process_simple_power_csv(uploaded_file):
+    """
+    Processes a minimal 'power + time only' CSV into the same internal
+    dataframe format process_fc_data_from_upload() produces, so it can be
+    fed into run_inference() without any changes downstream. Every channel
+    other than time and power_request is zero-filled. request_slope (the
+    power difference feature every ECU sub-model needs) is computed directly
+    from the power column, exactly as it would be for any other input type.
+    There is no measured data to compare against for this input type, the
+    caller should treat this the same as a function-block-built cycle
+    (has_real_data = False), since a file like this carries no sensor
+    channels beyond power and time.
+    """
+    try:
+        raw = pd.read_csv(uploaded_file)
+    except UnicodeDecodeError:
+        uploaded_file.seek(0)
+        raw = pd.read_csv(uploaded_file, encoding='latin-1')
+
+    time_col  = next((c for c in _SIMPLE_TIME_CANDIDATES  if c in raw.columns), None)
+    power_col = next((c for c in _SIMPLE_POWER_CANDIDATES if c in raw.columns), None)
+    if time_col is None or power_col is None:
+        raise ValueError(
+            "Could not find both a time column and a power column in this "
+            f"CSV. Expected a time column named one of {_SIMPLE_TIME_CANDIDATES} "
+            f"and a power column named one of {_SIMPLE_POWER_CANDIDATES}.")
+
+    time_arr  = raw[time_col].values.astype(float)
+    power_raw = raw[power_col].values.astype(float)
+    # power_request is always in W internally (only ever converted to kW for
+    # display). If the uploaded column is plainly in kW already (values
+    # small enough that they couldn't realistically be W for this stack),
+    # scale up so it matches that convention automatically.
+    power_arr = power_raw * 1000.0 if np.nanmax(np.abs(power_raw)) < 200 else power_raw
+
+    n = len(time_arr)
+    processed = pd.DataFrame({
+        'time'           : time_arr,
+        'current_density': np.zeros(n),
+        'bypass_flow'    : np.zeros(n),
+        'wp_rps'         : np.zeros(n),
+        'h2_p'           : np.zeros(n),
+        'air_p'          : np.zeros(n),
+        'cell_voltage'   : np.zeros(n),
+        'power_request'  : power_arr,
+        'power_net'      : np.zeros(n),
+        'power_gross'    : np.zeros(n),
+        'request_slope'  : np.diff(power_arr, prepend=power_arr[0]),
+        'T_in_K'         : np.zeros(n),
+        'T_out_K'        : np.zeros(n),
+        'air_compressor' : np.zeros(n),
+        'H2_consumption' : np.zeros(n),
+    })
+    dt = float(time_arr[1] - time_arr[0]) if n > 1 else 0.1
+    return processed, dt
+
+
 def process_fc_data_from_upload(uploaded_file):
     """
     Processes a drive cycle CSV upload into the model's internal format.
@@ -368,15 +453,14 @@ def process_fc_data_from_upload(uploaded_file):
 
     raw = raw[raw[c['voltage']] > 1.0].reset_index(drop=True)
 
-    # power_gross has no FC_A column at all (computed from voltage * current
-    # instead), so it's resolved separately rather than through
-    # _resolve_column, which would otherwise raise since FC_A's mapping for
-    # it is None.
-    gross_col = COLUMN_SCHEMA_VSPY['power_gross']
-    if gross_col in raw.columns:
-        gross_power = raw[gross_col].values
-    else:
-        gross_power = raw[c['voltage']].values * raw[c['current']].values
+    # Gross power is always computed as Voltage x Current directly, rather
+    # than trusting a raw 'Gross Power' column when one happens to be
+    # present. This keeps behavior identical and predictable across both
+    # schemas (FC_A never has a direct gross power column at all, it was
+    # only ever computed for that schema), and removes a dependency on a
+    # column name that isn't guaranteed to exist or be correctly populated
+    # in every VehicleSpy export.
+    gross_power = raw[c['voltage']].values * raw[c['current']].values
 
     processed = pd.DataFrame({
         'time'           : raw[c['time']].values,
@@ -404,6 +488,38 @@ def process_fc_data_from_upload(uploaded_file):
     dt      = processed['time'].values[1] - processed['time'].values[0]
     t_start = processed['T_in_K'].values[0]
     return processed, dt, t_start
+
+
+def process_fc_data_from_upload_auto(uploaded_file):
+    """
+    Single entry point the GUI should call for any CSV upload, regardless of
+    which of the two supported formats it is. Peeks at the file's header row
+    to decide whether it's a full sensor export (VehicleSpy or FC_A) or a
+    minimal power+time-only file, and routes to the correct processing
+    function, so app.py doesn't need to know which format it received ahead
+    of time.
+
+    Returns (df, dt, t_start, is_simple):
+      - df, dt        : as returned by whichever processing function ran
+      - t_start        : the stack's starting temperature in Kelvin, read
+                          from the file for a full sensor export; None for a
+                          simple power+time file, since that file type
+                          carries no temperature data at all, the caller
+                          should fall back to the Ambient Conditions slider
+                          value in that case.
+      - is_simple       : True if the minimal power+time path was used, so
+                          the caller can set has_real_data = False and skip
+                          any measured-data overlays for this run.
+    """
+    header_preview = pd.read_csv(uploaded_file, nrows=5)
+    uploaded_file.seek(0)
+
+    if _looks_like_simple_power_csv(header_preview.columns):
+        df, dt = process_simple_power_csv(uploaded_file)
+        return df, dt, None, True
+    else:
+        df, dt, t_start = process_fc_data_from_upload(uploaded_file)
+        return df, dt, t_start, False
 
 def build_drive_cycle_from_table(steps, dt=0.1):
     """
