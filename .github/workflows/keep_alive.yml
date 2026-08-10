@@ -2,8 +2,8 @@ name: Keep Streamlit App Awake
 
 on:
   schedule:
-    - cron: '0 */5 * * *'   # every 6 hours, UTC
-  workflow_dispatch:         # lets you trigger it manually to test
+    - cron: '0 */6 * * *'
+  workflow_dispatch:
 
 jobs:
   ping:
@@ -11,4 +11,4 @@ jobs:
     steps:
       - name: Ping the app
         run: |
-          curl -sSf -o /dev/null -w "HTTP %{http_code}\n" "https://pemfc-digital-twin-project.streamlit.app" || echo "Ping failed, app may need a manual reboot"
+          curl -sSf -o /dev/null -w "HTTP %{http_code}\n" "https://YOUR-APP-URL.streamlit.app" || echo "Ping failed, app may need a manual reboot"
